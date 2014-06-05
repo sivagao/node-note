@@ -77,7 +77,7 @@ exports.start = function() {
 
     app.get('/html/:delay', require('./routes/index'));
     app.all('/api/:delay', require('./routes/api'));
-    
+
 
     http.createServer(app).listen(app.get('port'), function() {
         console.log(color.yellow('['+pkg.name+']'+' is running on ......'+' ==> http://localhost:'+app.get('port')));
