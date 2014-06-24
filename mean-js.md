@@ -109,7 +109,151 @@ The AngularJs Views Folder - Where we keep our CRUD views.
 
 ```js
 
+```
 
+
+### express-validator
+这个中间件非常有意思
+
+配置：
+errorFormatter: used to specify a function that can be used to format objects populate the error array returned in req.validationErrors()
+
+扩展：
+expressValidator.validator.extend('isFinite', function (str) {
+    return isFinite(str);
+});
+
+使用：
+
+```js
+app.use(expressValidator([options])); // this line must be immediately after express.bodyParser()!
+
+app.post('/:urlparam', function(req, res) {
+
+  // checkBody only checks req.body; none of the other req parameters
+  // Similarly checkParams only checks in req.params (URL params) and
+  // checkQuery only checks req.query (GET params).
+  req.checkBody('postparam', 'Invalid postparam').notEmpty().isInt();
+  req.checkParams('urlparam', 'Invalid urlparam').isAlpha();
+  req.checkQuery('getparam', 'Invalid getparam').isInt();
+
+  // OR assert can be used to check on all 3 types of params.
+  // req.assert('postparam', 'Invalid postparam').notEmpty().isInt();
+  // req.assert('urlparam', 'Invalid urlparam').isAlpha();
+  // req.assert('getparam', 'Invalid getparam').isInt();
+
+  req.sanitize('postparam').toBoolean();
+
+  var errors = req.validationErrors();
+  if (errors) {
+    res.send('There have been validation errors: ' + util.inspect(errors), 400);
+    return;
+  }
+  res.json({
+    urlparam: req.param('urlparam'),
+    getparam: req.param('getparam'),
+    postparam: req.param('postparam')
+  });
+});
+```
+
+```shell
+$ curl -d 'postparam=1' http://localhost:8888/test?getparam=1
+{"urlparam":"test","getparam":"1","postparam":true}
+
+$ curl -d 'postparam=1' http://localhost:8888/t1est?getparam=1
+There have been validation errors: [
+  { param: 'urlparam', msg: 'Invalid urlparam', value: 't1est' } ]
+
+$ curl -d 'postparam=1' http://localhost:8888/t1est?getparam=1ab
+There have been validation errors: [
+  { param: 'getparam', msg: 'Invalid getparam', value: '1ab' },
+  { param: 'urlparam', msg: 'Invalid urlparam', value: 't1est' } ]
+```
+
+内幕： 注册一些方法到 req 中
+
+```js
+var expressValidator = function(options) {
+  
+  // 和 checkParam 类似
+  function sanitize = function(request, param, value) {
+
+    // 返回一个 methods, 其中每个 method 是调用 validator 的然后 request.upldateParam(param, result);
+  }
+
+  function checkParam(req, getter) {
+    // use getter to assert val
+
+    return function(param, failMsg) {
+
+      // 注入错误 msg 到  req._validationErrors(via errorFormatter)
+      var errorHandler = function (msg) {
+        var error = _options.errorFormatter(param, msg, value);
+
+        if (req._validationErrors === undefined) {
+          req._validationErrors = [];
+        }
+        req._validationErrors.push(error);
+
+        if (req.onErrorCallback) {
+          req.onErrorCallback(msg);
+        }
+        return this;
+      };
+
+      var methods = [];
+      // validator - require('validator');
+      Object.keys(validator).forEach(function(methodName) {
+
+        if() { // filter sanitizer(like trim, escape etc)
+          methods[methodName] = function() {
+            var args = [value].concat(Array.prototype.slice.call(arguments));
+            var isCorrect = validator[methodName].apply(validator, args);
+
+            if(!isCorrect) {
+              errorHandler(failMsg || 'Invalid value');
+            }
+          }
+        }
+      });
+
+      // len, notEmpty method
+
+      return methods;
+    }
+  }
+
+  return function(req, res, next) {
+    // req.updateParam
+
+    // req.check, req.checkFiles, checkBody, checkQuery
+
+    req.checkBody = checkParam(req, function(item) {
+      return req.body && req.body[item];
+    });
+
+    req.onValidationError = function(errback) {
+
+    };
+    req.validationErrors = function(errback) {
+      if (req._validationErrors === undefined) {
+        return null;
+      }
+      // or mapped with err.param as key
+      
+      return req._validationErrors;
+    };
+
+    req.filter = function(param) {
+      return sanitize(this, param, this.param(param));
+    };
+    req.sanitize = req.filter;
+    req.assert = req.check;
+    req.validate = req.check;
+    return next();
+  }
+};
 ```
 
 
