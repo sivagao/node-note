@@ -111,6 +111,77 @@ The AngularJs Views Folder - Where we keep our CRUD views.
 
 ```
 
+### TODO
+
+- import assets file and add to locals
+- express/mongo session storage
+- dynamic helpers
+- use passport session
+- mean middleware from modules before routes
+- flash message
+- favicon
+- 主题相关? 
+- events.on('modulesFound') ?
+
+### assetmanager
+Asset manager easily allows you to switch between development and production css and js files in your templates by managing them in a single json file that'still compatible with grunt cssmin and uglify.
+非常好用！
+
+这样在模板里面使用
+```html
+{% for file in assets.main.css %}
+  <link rel="stylesheet" href="{{file}}">
+{% endfor %}
+```
+
+```js
+app.use(function(req, res, next) {
+  res.locals.asserts = assetsmanager.process({
+    assets: assets, // assets = require('./assets.json'),
+    debug: process.env.NODE_ENV !== 'production',
+    webroot: 'public/public'
+  });
+  next();
+});
+// 配置文件格式
+/*
+{
+  core: {
+    <type: css, js>: {
+      <min-one>: [
+          <dep1>,
+          <dep1>
+      ]
+    }
+  }
+}
+*/
+```
+
+
+### view-helpers
+used as middlewares, helpers used in views
+暴露了一些变量和方法和 req 对象
+
+* `createPagination(pages, page)` - creates pagination
+* `formatDate(date)` - date is a mongoose `Date` object
+* `isActive('/link/href/')` - to add active class to the link
+* `stripScript(str)` - to escape javascript inputs
+* `req.isMobile` - detects if the request is coming from tablet/mobile device
+* `res.render('template', locals, cb)` - mobile templates - If the request is coming from a mobile device, then it would try to look for a `template.mobile.jade`
+
+```js
+// TODO
+```
+
+
+
+### method-override
+Lets you use HTTP verbs such as PUT or DELETE in places you normally can't.
+通过在 X-HTTP-Method-Override 头或者 req.body[key:_method]. if found method is supported by express, it will be used in req.method.
+
+express 支持的方法 "get,post,put,head,delete,options,trace,copy,lock,mkcol,move,purge,propfind,proppatch,unlock,report,mkactivity,checkout,merge,m-search,notify,subscribe,unsubscribe,patch,search"
+
 
 ### express-validator
 这个中间件非常有意思
@@ -241,7 +312,7 @@ var expressValidator = function(options) {
         return null;
       }
       // or mapped with err.param as key
-      
+
       return req._validationErrors;
     };
 
