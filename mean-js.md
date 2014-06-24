@@ -1,4 +1,4 @@
-# #开搞
+## 开搞
 
 ``` shell
 $ npm install - g meanio@ lastest
@@ -94,6 +94,132 @@ The AngularJs Views Folder - Where we keep our CRUD views.
 }
 ```
 
+### mean server directory
+
+- config
+    - env: all, test, dev, prod
+    - system: bootstrap
+    asserts.json, config, express, passport
+- controllers
+- models
+- routes
+- views
+
+### mean - config - express
+
+```js
+
+
+```
+
+
+### morgan logger - by tj
+
+```js
+
+exports = module.exports = function logger(options) {
+    // check options
+    if(options && typeof options !== 'object') {
+        options = {format: options};
+    } else {
+        options = options || {};
+    }
+
+    // immediate, skip(support filter fn), fmt, compile, stream, buffer?
+
+    // compile format
+    if ('function' != typeof fmt) fmt = compile(fmt);
+
+    // options
+    var stream = options.stream || process.stdout;
+
+    return function logger(req, res, next) {
+        req._startAt = process.hrtime();
+        req._startTime = new Date;
+        req._remoteAddress = req.connection && req.connection.remoteAddress;
+
+        function logRequest(){
+          res.removeListener('finish', logRequest);
+          res.removeListener('close', logRequest);
+          if (skip(req, res)) return;
+          var line = fmt(exports, req, res);
+          if (null == line) return;
+          stream.write(line + '\n');
+        };
+
+        // immediate
+        if (immediate) {
+          logRequest();
+        // proxy end to output logging
+        } else {
+          res.on('finish', logRequest);
+          res.on('close', logRequest);
+        }
+
+
+        next();
+    }
+};
+
+// compile `fmt` into a function
+function compile(fmt) {
+  fmt = fmt.replace(/"/g, '\\"');
+  var js = '  return "' + fmt.replace(/:([-\w]{2,})(?:\[([^\]]+)\])?/g, function(_, name, arg){
+    return '"\n    + (tokens["' + name + '"](req, res, "' + arg + '") || "-") + "';
+  }) + '";'
+  console.log(js);
+  return new Function('tokens, req, res', js);
+
+  // import fmt: :remote-addr - - [:date] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"
+  /*
+    return ""
+      + (tokens["remote-addr"](req, res, "undefined") || "-") + " - - ["
+      + (tokens["date"](req, res, "undefined") || "-") + "] \""
+      + (tokens["method"](req, res, "undefined") || "-") + " "
+      + (tokens["url"](req, res, "undefined") || "-") + " HTTP/"
+      + (tokens["http-version"](req, res, "undefined") || "-") + "\" "
+      + (tokens["status"](req, res, "undefined") || "-") + " "
+      + (tokens["res"](req, res, "content-length") || "-") + " \""
+      + (tokens["referrer"](req, res, "undefined") || "-") + "\" \""
+      + (tokens["user-agent"](req, res, "undefined") || "-") + "\"";
+  */
+}
+
+// format
+exports.format = function(name, fmt) {
+    exports[name] = fmt;
+    return this;  
+};
+
+exports.format('default', ':remote-addr - - [:date] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"');
+
+exports.format('dev', function(tokens, req, res){
+  var color = 32; // green
+  var status = res.statusCode;
+
+  if (status >= 500) color = 31; // red
+  else if (status >= 400) color = 33; // yellow
+  else if (status >= 300) color = 36; // cyan
+
+  var fn = compile('\x1b[90m:method :url \x1b[' + color + 'm:status \x1b[90m:response-time ms - :res[content-length]\x1b[0m');
+
+  return fn(tokens, req, res);
+});
+
+
+// token
+exports.token = function(name, fn) {
+  exports[name] = fn;
+  return this;
+};
+
+exports.token('remote-addr', function(req) {
+    if(req.ip) return req.ip;
+    if(req._remoteAddress) return req._remoteAddress;
+    if(req.connection) return req.connection.remoteAddress;
+    return undefined;
+});
+```
 
 
 ### mean-log
