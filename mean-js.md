@@ -116,15 +116,18 @@ The AngularJs Views Folder - Where we keep our CRUD views.
 //mean middleware from modules before routes
 app.use(mean.chainware.before);
 
-
+// 触发时机 -> findModules 会 emit 在 searchDone(events.emit('modulesFound'))
+// app() -> findModules(), enableModules(), aggregate('js'), menu?
 mean.events.on('modulesFound', function() {
   for (var name in mean.modules) {
     app.use('/'+name, express.static(config+'/'+mean.modules[name].source + '/'+name + '/public'));
   }
 
   function bootstrapRoutes() {
-    // 注入模块的 route middlewares
-    util.walk(appPath+'/server', 'route', 'middlewares', function(path) {
+    // 注入 routes 目录下的 路由代码，排除 middlewares
+    // middlewares is shared by routes
+    // util.walk 方法的签名： root, type, dirToIgnore, cb
+    util.walk(appPath+'/server', 'routes', 'middlewares', function(path) {
       require(path)(app, passport);
     });
   }
@@ -151,19 +154,17 @@ mean.events.on('modulesFound', function() {
 
   // Assume 404 since no middleware responded - 最后一关
   app.use(function(req, res) {
-      res.status(404).render('404', {
-          url: req.originalUrl,
-          error: 'Not found'
-      });
+    res.status(404).render('404', {
+      url: req.originalUrl,
+      error: 'Not found'
+    });
   });
 
   // Error handler - has to be last
   if (process.env.NODE_ENV === 'development') {
-      app.use(errorHandler());
+    app.use(errorHandler());
   }
 });
-
-
 ```
 
 ### TODO
@@ -178,6 +179,60 @@ mean.events.on('modulesFound', function() {
 - 主题相关? 
 - events.on('modulesFound') ?
 
+
+### mean.io
+分类 cli 代码和 mean 的 express server 相关代码
+
+cli provides a lot of useful functionality, such as scaffolding options to ceate new packages, assign roles to users, check the mongo status, add/remove packages and list currently installed packages.
+
+
+```js
+function Meanio() {
+  if (this.active) return;
+  this.events = events;
+  this.version = require('../package').version;
+}
+
+Meanio.prototype.Module = function(name) {
+
+  // render, routes, aggreagteAsset, register, setttigns etc
+};
+
+// fn: findMouldes, enableModules,
+
+function findMoudles() {
+  // 插件机制，挺爽
+  // readdir-> files.forEach, read package.json, to check mean field existity
+  /*
+    if(json.mean) {
+      modules[json.name] = {
+        version: json.version,
+        source: source
+      }
+    }
+    // 在 mean 项目的 express 中会有注入
+  */
+
+  function searchDone() {
+    source--;
+    if(!source) {
+      events.emit('modulesFound');
+    }
+  }
+  searchSource('node_modules', searchDone);
+  searchSource('packages', searchDone);
+}
+
+// will do compression and mingify/uglify
+function aggregate() {}
+// prototype method: add, status, register, resovlve, load, aggregated, Module etc. chainware
+
+Meanio.prototype.chainware = {
+  add: function() {}
+};
+
+module.exports = exports = new Meanio();
+```
 
 ### 静态资源相关
 非常有意思的是： express app 中居然有对静态资源的 route（特殊处理）
@@ -595,4 +650,34 @@ Logger.prototype = {
     initRoute: function() {},// logger/log?msg logger/show <-(self.mongoose.models.Log.find().sort('-created'))
     log: function() {}
 }
+```
+
+
+附上： util.walk
+
+```js
+
+var fs = require('fs'),
+    path = require('path');
+
+var baseRgx = /(.*).(js|coffee)$/;
+
+// recursively walk modules path and callback for each file
+function walk(wpath, type, excludeDir, callback) {
+    // regex - any chars, then dash type, 's' is optional, with .js or .coffee extension, case-insensitive
+    // e.g. articles-MODEL.js or mypackage-routes.coffee
+    var rgx = new RegExp('(.*)-' + type + '(s?).(js|coffee)$', 'i');
+    if (!fs.existsSync(wpath)) return;
+    fs.readdirSync(wpath).forEach(function(file) {
+        var newPath = path.join(wpath, file);
+        var stat = fs.statSync(newPath);
+        if (stat.isFile() && (rgx.test(file) || (baseRgx.test(file)) && ~newPath.indexOf(type))) {
+            // if (!rgx.test(file)) console.log('  Consider updating filename:', newPath);
+            callback(newPath);
+        } else if (stat.isDirectory() && file !== excludeDir && ~newPath.indexOf(type)) {
+            walk(newPath, type, excludeDir, callback);
+        }
+    });
+}
+exports.walk = walk;
 ```
