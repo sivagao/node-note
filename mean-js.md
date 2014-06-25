@@ -178,6 +178,91 @@ mean.events.on('modulesFound', function() {
 - 主题相关? 
 - events.on('modulesFound') ?
 
+
+### 静态资源相关
+非常有意思的是： express app 中居然有对静态资源的 route（特殊处理）
+
+PS: GridFS 的适用场景：
+it is a specification for storing and retrieving files that exceed the BSON-document size limit of 16MB.
+Instead of storing a file in a single document, GridFS divides a file into parts, or chunks, [1] and stores each of those chunks as a separate document.
+You can perform range queries on files stored through GridFS
+
+- If your filesystem limits the number of files in a directory, you can use GridFS to store as many files as needed.
+-  to keep your files and metadata automatically synced and deployed across
+- to access information from portions of large files without having to load whole files into memory
+
+```js
+// 对于 public/system/lib/bootstrap/dist/css/bootstrap.css 还有theme 处理
+var gfs = new Grid(db.connection.db, db.mongo);
+function themeHandler(req, res) {
+  res.setHeader('content-type', 'text/css');
+  gfs.files.findOne({
+    filename: 'theme.css'
+  }, function(err, file) {
+    if(!file) {
+      // stream(original) pipe res
+    } else {
+      // 否着 gfs.createReadStream('theme.css') pipe to res
+    }
+  });
+}
+
+// do the same for aggregated.js
+app.get('/modules/aggregated.css', fucntion(req, res) {
+    res.setHeader('content-type', 'text/css');
+    res.send(mean.aggregated.css);
+});
+
+app.use('/public', express.static(config.root+'/public'));
+```
+
+### exrepss-session
+
+```js
+// Express/Mongo session storage
+app.use(session({
+    secret: config.sessionSecret, // string used to compute a session hash
+    store: new mongoStore({
+        db: db.connection.db,
+        collection: config.sessionCollection
+    }),
+    cookie: config.sessionCookie, // cookie setting(path, httpOnly, maxAge, secure 等)
+    name: config.sessionName // session cookie name
+}));
+```
+
+
+### connect-flash
+
+```js
+// 首先应该 enable cookieParser 和 session
+// 中间件: req.flash = _flash
+// 依赖于模板渲染 flash messages: res.render('index', { messages: req.flash('info') });
+funciton _flash(type, msg) {
+  if(this.session === undefined) throw Error('req.flash() requires session');
+  var msgs = this.session.flash = this.session.flash || {};
+  if(type && msg) {
+    // support format
+    if(arguments.length > 2 && format) {
+
+    } else if (isArray(msgs)) {
+      
+    }
+    // support array msg
+    return (msgs[type] = msgs[type] || []).push(msg);
+  } else if(type) {
+    var arr = msgs[type];
+    delete msgs[type];
+    return arr || [];
+  } else {
+    this.session.flash = {};
+    return msgs;
+  }
+}
+```
+
+
+
 ### assetmanager
 Asset manager easily allows you to switch between development and production css and js files in your templates by managing them in a single json file that'still compatible with grunt cssmin and uglify.
 非常好用！
