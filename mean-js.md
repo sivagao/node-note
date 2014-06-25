@@ -108,6 +108,61 @@ The AngularJs Views Folder - Where we keep our CRUD views.
 ### mean - config - express
 
 ```js
+// blah blah 各种第三方 express|connect 中间件
+
+
+// mean 自带的一些
+
+//mean middleware from modules before routes
+app.use(mean.chainware.before);
+
+
+mean.events.on('modulesFound', function() {
+  for (var name in mean.modules) {
+    app.use('/'+name, express.static(config+'/'+mean.modules[name].source + '/'+name + '/public'));
+  }
+
+  function bootstrapRoutes() {
+    // 注入模块的 route middlewares
+    util.walk(appPath+'/server', 'route', 'middlewares', function(path) {
+      require(path)(app, passport);
+    });
+  }
+  /*
+    /server/routes/middlewares/*
+    /authorization
+  */
+
+  bootstrapRoutes();
+
+  // mean middleware from modules after routes
+  app.use(mean.chainware.after);
+
+  // 404 not found
+  app.use(function(err, req, res, next) {
+    if(~err.message.index('not found')) return next();
+
+    console.log(err.stack);
+    // error page
+    res.status(500).render('500', {
+      error: err.stack
+    });
+  });
+
+  // Assume 404 since no middleware responded - 最后一关
+  app.use(function(req, res) {
+      res.status(404).render('404', {
+          url: req.originalUrl,
+          error: 'Not found'
+      });
+  });
+
+  // Error handler - has to be last
+  if (process.env.NODE_ENV === 'development') {
+      app.use(errorHandler());
+  }
+});
+
 
 ```
 
