@@ -250,6 +250,19 @@ db.on('open', function() {
 ```
 
 ## Query
+Query Builder, is cool like in Django and Rails
+
+```js
+User.find({'name' : 'Simon Holmes'})
+   .where('age').gt(18)
+   .sort('-lastLogin')
+   .select('_id name email')
+   .exec(function (err, users){
+     if (!err){
+       console.log(users); // output array of users found
+    });
+```
+
 
 ## Update
 
