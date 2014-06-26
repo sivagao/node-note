@@ -9,6 +9,161 @@ show collections
 db.boards.find
 ```
 
+## Note from 『mongoose for application development』
+Mongoose, a data modeling tool
+
+- to dramatically speed up your development process
+- it has a data model, and bringing control and management of that model into you app. 
+- it enables you to create a robust yet rich data strcuture, a level of database management.
+
+what is mongoose good for?
+
+- be useful to interact with structured dat in a structured and repeatable way.
+- to remove some complexity from the nested callbacks.
+- has a suite of helper functions and methods
+
+
+## Topic - Validation data
+
+default validation: 
+all：unique, required
+numer: min, max
+string: match, enum
+
+understanding validation errors
+
+自定义 validator
+
+Tips: 有插件，来把 vdalidator 导出为 mongoose 适用的
+
+```js
+var weekdaySchema = new Schema({
+     day : {type: String, match: /^(mon|tues|wednes|thurs|fri)day$/i}
+});
+// OR
+var weekdays = ['monday', 'tuesday', 'wednesday', 'thursday',
+   'friday'];
+var weekdaySchema = new Schema({
+ day : {type: String,  enum: weekdays}
+});
+
+// 如何捕获验证出错?
+// 最好把这里抽到共用的地方 - 给 controller 返回错误 json，便于传递给 API 的使用者
+user.save(function(err, user) {
+   if(err) {
+        // may be valdation error
+    }
+});
+// 错误格式
+{
+    message: 'Validation failed',
+    name: 'ValidationError',
+    errors: {
+        email: {
+            message: 'Validator "required" failed for path email',
+            name: 'ValidatorError',
+            path: 'email',
+            type: 'required'
+        },
+        name: {
+            message: 'Validator "required" failed for path name',
+            name: 'ValidatorError',
+            path: 'name',
+            type: 'required'
+        }
+    }
+}
+
+
+// valdiator fn 返回值固定为 Boolean
+var lengthValidator = function (val) {
+    if(val && val.length >= 5) {
+        return true;
+    }
+    return false;
+}
+
+var validateObj = [
+     {validator: lengthValidator, msg: 'Too short'} ,
+     {validator: /^[a-z]+$/i, msg: 'Letters only'}
+];
+// schema path 的 validator 比较灵
+// 可以是对象（多个验证[{validator, msg, type}]），可以是普通 Boolean Fn（正则也行）
+name: {type: String, required: true, vlaidator: validateObj}
+```
+
+
+## Topic - Complex Schemas
+dont like relational database, it has no SQL-style `JOIN` commands, instead it has concepts of population and subdocuments(embeded docuemnts).
+
+```js
+// population
+var projectSchema = new mongoose.Schema({
+     ...
+     createdBy: {type: mongoose.Schema.Types.ObjectId, ref: 'User'},
+    ...
+});
+
+Project
+    .findById(req.params.id)
+    .populate('createBy')
+    .exec(function(err, project){})
+// partial subdocuemnt: .populate('craeteBy', 'name email')
+// multi sundocuemnt .populate('createBy contributors')
+Project
+    .populate({
+        path: 'contributors',
+        match: {email: /@wandoujia\.com/i},
+        select: 'name lastLogin',
+        options: {limit: 5, sort: 'name'}
+    }).exec()
+
+// subdocuments
+// subdocuments are documents that are stored within a parent document, instead of a MongoDB collection of their own.
+var projectSchema = new mongoose.Schema({
+     projectName: String,
+     ...
+     tasks: [taskSchema]
+});
+
+project.tasks.push({
+   taskName: req.body.taskName,
+   taskDesc: req.body.taskDesc,
+   createdBy: req.session.user._id
+ });
+// accessing a specific subdocument: to use id()
+var thisTask = project.tasks.id(req.params.taskID);
+
+app.get('/project/:id/task/edit/:taskID', project.editTask);
+app.post('/project/:id/task/edit/:taskID', project.doEditTask);
+app.get('/project/:id/task/delete/:taskID', project.confirmDeleteTask);
+app.post('/project/:id/task/delete/:taskID', project.doDeleteTask);
+```
+
+Thing to think about - data migration
+to create a script to update all at once, or update on an ongoing "as needed" basis
+综合考虑：latency, potential downtime, code complexity, and any other application specific consideration.
+
+
+
+## Topic - Plugins - re-using code
+http://plugins.mongoosejs.com - 非常有意思简单的基于 npm 的插件『平台』
+
+```js
+var mongoose = require('mongoose');
+module.exports = exports = function modifiedOn(schema, options) {
+    schema.add({modifiedOn: Date});
+
+    schema.pre('save', function(next) {
+        this.modifiedOn = Date.now();
+        next(); // pass on execute chain
+    });
+};
+// use it 
+var modifiedOn = require('./modifiedOn');
+userSchema.plugin(modifiedOn);
+```
+
 ## Connecting
 有个问题，localhost 要转成 127.0.0.1 才行(更我修改的 hosts 有关？！)
 
